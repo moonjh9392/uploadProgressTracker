@@ -1,5 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
+
+//socket
+import SockJS from "sockjs-client";
+import Stomp from "stompjs";
+
 import Modal from "./components/Modal/index";
 import Button, { colors } from "./components/Button";
 
@@ -115,6 +120,10 @@ const UploadPopup = styled.div`
   }
 `;
 
+//socket 연결
+const socket = new SockJS("ws://");
+const stompClient = Stomp.over(socket);
+
 function App() {
   //1. 파일 추가 누르면 파일선택 팝업
   //2. 변환 선택시 api로 파일전송 후 res값으로 해당 파일 key값받음
@@ -161,6 +170,27 @@ function App() {
     setFile(null);
     setThumbnail("");
   };
+
+  function sendMessage() {
+    stompClient.send("/app/hello", {}, JSON.stringify({ name: "YourName" }));
+  }
+
+  useEffect(() => {
+    stompClient.connect({}, function (frame) {
+      console.log("Connected: " + frame);
+
+      stompClient.subscribe("/topic/message", function (message) {
+        alert(JSON.parse(message.body).content);
+      });
+    });
+    return () => {
+      if (stompClient) {
+        stompClient.disconnect(() => {
+          console.log("Disconnected");
+        });
+      }
+    };
+  }, []);
 
   return (
     <AppWrap>
