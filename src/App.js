@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 
 //socket
-import SockJS from "sockjs-client";
-import Stomp from "stompjs";
+import { Stomp } from "@stomp/stompjs";
 
 import Modal from "./components/Modal/index";
 import Button, { colors } from "./components/Button";
@@ -121,7 +120,10 @@ const UploadPopup = styled.div`
 `;
 
 //socket 연결
-const socket = new SockJS("ws://");
+//real
+// const socket = new WebSocket("ws://192.168.0.67:8080/ws");
+//test
+const socket = new WebSocket("ws://localhost:8080/ws");
 const stompClient = Stomp.over(socket);
 
 function App() {
@@ -171,22 +173,44 @@ function App() {
     setThumbnail("");
   };
 
-  function sendMessage() {
-    stompClient.send("/app/hello", {}, JSON.stringify({ name: "YourName" }));
-  }
+  const sendMessage = () => {
+    if (isConnected) {
+      stompClient.send(
+        "/sub/message",
+        {},
+        JSON.stringify({ name: "YourName" })
+      );
+    } else {
+      console.log("STOMP 연결이 활성화되지 않았습니다.");
+    }
+  };
+
+  const [message, setMessage] = useState();
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    stompClient.connect({}, function (frame) {
-      console.log("Connected: " + frame);
+    stompClient.connect(
+      {},
+      function (frame) {
+        console.log("Connected: " + frame);
+        setIsConnected(true); // 연결이 성공하면 상태 업데이트
 
-      stompClient.subscribe("/topic/message", function (message) {
-        alert(JSON.parse(message.body).content);
-      });
-    });
+        stompClient.subscribe("/pub/message", function (message) {
+          console.log("메시지 수신:", message);
+          setMessage(JSON.parse(message.body).content);
+        });
+      },
+      function (error) {
+        // 연결 실패 시 로직
+        console.log("Connection error: " + error);
+      }
+    );
+
     return () => {
       if (stompClient) {
         stompClient.disconnect(() => {
           console.log("Disconnected");
+          setIsConnected(false); // 연결 해제 시 상태 업데이트
         });
       }
     };
@@ -195,7 +219,10 @@ function App() {
   return (
     <AppWrap>
       <button onClick={handleModalOpen}>파일추가</button>
-      <ListWrap></ListWrap>
+      <Button onClick={sendMessage} disabled={!isConnected}>
+        메세지보내기
+      </Button>
+      <ListWrap>{message}</ListWrap>
       <Modal
         isOpen={openModal}
         handleClose={handleModalClose}
