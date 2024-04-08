@@ -51,6 +51,17 @@ const ListWrap = styled.div`
     font-size: 24px;
     font-weight: 900;
     line-height: 26px;
+
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    .green {
+      color: ${colors.green};
+    }
+    .blue {
+      color: ${colors.blue0F5BC9};
+    }
   }
   .name {
     cursor: pointer;
@@ -60,7 +71,7 @@ const ListWrap = styled.div`
 const tempData = [
   {
     topic: "123123",
-    totla: 7,
+    total: 7,
     compelete: 3,
     converting: 4,
     progress: "50",
@@ -190,22 +201,28 @@ function App() {
       <ContentWrap addlist={addList.toString()}>
         {tempData.map((data, index) => (
           <ListWrap key={index}>
-            <div className='title'>{data.topic}</div>
+            <div className='title'>
+              <span>{data.topic}</span>
+              <span>전체 : {data.total}</span>
+              <span className='blue'>진행중 : {data.converting}</span>
+              <span className='green'>완료 : {data.compelete}</span>
+            </div>
             <LinearProgress
               color={data.progress === "100" ? "success" : "primary"}
               variant='determinate'
               value={data.progress}
             />
 
-            {data.files?.map((file, index) => (
-              <div
-                key={index}
-                className='name'
-                onClick={() => previewImage(file.progress, "image.jpg")}
-              >
-                {file.name}
-              </div>
-            ))}
+            {data.files &&
+              data.files?.map((file, index) => (
+                <div
+                  key={index}
+                  className='name'
+                  onClick={() => previewImage(file.progress, "image.jpg")}
+                >
+                  {file.name}
+                </div>
+              ))}
           </ListWrap>
         ))}
       </ContentWrap>
