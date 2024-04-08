@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import styled from "styled-components";
 import Modal from "../Modal";
 import Button, { colors } from "../Button";
+import useManualApi from "../../hooks/useManualApi";
 
 const UploadPopupWrap = styled.div`
   width: 700px;
@@ -103,33 +104,35 @@ const UploadPopupWrap = styled.div`
 const UploadPopup = ({ openModal, handleModalClose }) => {
   const fileRef = useRef(null); // 업로드 파일 input ref 삭제시 필요
   const [file, setFile] = useState(null);
-  const [thumbnail, setThumbnail] = useState(""); // 업로드 파일
+
+  // useApi 훅을 여기서 호출합니다.
+  const { response, loading, error, execute } = useManualApi(
+    "post",
+    "/api/v1/generate-thumbnails",
+    null, // 초기 데이터는 null로 설정
+    {}, // 초기 헤더는 빈 객체로 설정
+    {
+      "Content-Type": "multipart/form-data",
+    }
+  );
 
   // 이미지 업로드 파일 선택 이벤트
   const handleFileChange = (event) => {
     const file = event.target.files[0]; // 첫 번째 선택한 파일 가져오기
     setFile(file);
-    console.log(file);
-
-    // 썸네일 생성
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setThumbnail(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setThumbnail(null);
-    }
   };
 
   //선택 이미지 삭제
   const deleteFile = () => {
-    if (fileRef.current) {
-      fileRef.current.value = "";
-    }
     setFile(null);
-    setThumbnail("");
+  };
+
+  const FileUpload = async () => {
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      execute(formData); // execute 함수를 사용하여 API 호출을 트리거합니다.
+    }
   };
 
   return (
@@ -169,7 +172,7 @@ const UploadPopup = ({ openModal, handleModalClose }) => {
                   <input
                     type='file'
                     id={"imgInput"}
-                    accept='.xlsx, .xls' // 이미지 파일만 선택 가능하도록 설정
+                    accept='.zip' // 이미지 파일만 선택 가능하도록 설정
                     style={{ display: "none" }} // 실제로 보이지 않게 숨김/
                     onChange={(e) => handleFileChange(e)} // 파일 선택 변경 이벤트 핸들러 연결
                     ref={fileRef}
@@ -184,10 +187,10 @@ const UploadPopup = ({ openModal, handleModalClose }) => {
                 height={"60"}
                 width={"130px"}
                 // 엑셀 다운로드 API call 및 다운로드 진행 함수
-                onClick={() => {}}
+                onClick={() => FileUpload()}
                 disabled={file === null}
               >
-                수정 업로드
+                업로드
               </Button>
             </div>
           </div>

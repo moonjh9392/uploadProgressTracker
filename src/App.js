@@ -17,10 +17,13 @@ const AppWrap = styled.div`
   align-items: center;
   gap: 30px;
   ${({ addlist }) =>
-    addlist === "false" &&
-    css`
-      height: 100vh;
-    `};
+    addlist === "false"
+      ? css`
+          height: 100vh;
+        `
+      : css`
+          padding-right: calc(10% - 12px);
+        `};
 `;
 
 const ContentWrap = styled.div`
@@ -49,65 +52,23 @@ const ListWrap = styled.div`
     font-weight: 900;
     line-height: 26px;
   }
-`;
-
-const FileProgress = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 5%;
-
   .name {
-    width: 10%;
-    color: ${colors.grayAAA};
-    ${({ progress }) =>
-      progress === "100" &&
-      css`
-        cursor: pointer;
-        color: ${colors.green};
-        font-weight: 900;
-      `};
-  }
-  .progress {
-    width: 70%;
-  }
-
-  .state {
-    width: 10%;
-    word-break: keep-all;
+    cursor: pointer;
   }
 `;
 
 const tempData = [
   {
     topic: "123123",
+    totla: 7,
+    compelete: 3,
+    converting: 4,
+    progress: "50",
     files: [
-      { name: "file1", progress: "0" },
-      { name: "file2", progress: "100" },
-      { name: "file3", progress: "50" },
-      { name: "file4", progress: "50" },
-      { name: "file5", progress: "50" },
-    ],
-  },
-  {
-    topic: "123123",
-    files: [
-      { name: "file1", progress: "0" },
-      { name: "file2", progress: "100" },
-      { name: "file3", progress: "50" },
-      { name: "file4", progress: "50" },
-      { name: "file5", progress: "50" },
-    ],
-  },
-  {
-    topic: "123123",
-    files: [
-      { name: "file1", progress: "0" },
-      { name: "file2", progress: "100" },
-      { name: "file3", progress: "50" },
-      { name: "file4", progress: "50" },
-      { name: "file5", progress: "50" },
+      { name: "file1" },
+      { name: "file2" },
+      { name: "file3" },
+      { name: "file4" },
     ],
   },
 ];
@@ -224,7 +185,7 @@ function App() {
         </div>
 
         <Button onClick={sendMessage} disabled={!isConnected}>
-          메세지보내기
+          메세지보내기 테스트용
         </Button>
       </ContentWrap>
 
@@ -232,24 +193,20 @@ function App() {
         {tempData.map((data, index) => (
           <ListWrap key={index}>
             <div className='title'>{data.topic}</div>
-            {data.files?.map((file, index) => (
-              <FileProgress progress={file.progress} key={index}>
-                <div
-                  className='name'
-                  onClick={() => previewImage(file.progress, "image.jpg")}
-                >
-                  {file.name}
-                </div>
-                <div className='progress'>
-                  <LinearProgress
-                    color={file.progress === "100" ? "success" : "primary"}
-                    variant='determinate'
-                    value={file.progress}
-                  />
-                </div>
+            <LinearProgress
+              color={data.progress === "100" ? "success" : "primary"}
+              variant='determinate'
+              value={data.progress}
+            />
 
-                <div className='state'>상태</div>
-              </FileProgress>
+            {data.files?.map((file, index) => (
+              <div
+                key={index}
+                className='name'
+                onClick={() => previewImage(file.progress, "image.jpg")}
+              >
+                {file.name}
+              </div>
             ))}
           </ListWrap>
         ))}
