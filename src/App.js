@@ -222,7 +222,7 @@ function App() {
         <div>
           <Button onClick={handleModalOpen}>파일추가</Button>
         </div>
-        {/* test */}
+
         <Button onClick={sendMessage} disabled={!isConnected}>
           메세지보내기
         </Button>
