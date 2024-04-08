@@ -188,7 +188,7 @@ const UploadPopup = ({ openModal, handleModalClose }) => {
                 width={"130px"}
                 // 엑셀 다운로드 API call 및 다운로드 진행 함수
                 onClick={() => FileUpload()}
-                disabled={file === null}
+                disabled={file === null || loading}
               >
                 업로드
               </Button>

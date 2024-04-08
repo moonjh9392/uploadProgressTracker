@@ -184,9 +184,7 @@ function App() {
           <Button onClick={handleModalOpen}>파일추가</Button>
         </div>
 
-        <Button onClick={sendMessage} disabled={!isConnected}>
-          메세지보내기 테스트용
-        </Button>
+        <Button disabled={!isConnected}>서버 연결상태</Button>
       </ContentWrap>
 
       <ContentWrap addlist={addList.toString()}>
