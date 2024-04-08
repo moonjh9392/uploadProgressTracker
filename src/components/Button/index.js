@@ -110,7 +110,7 @@ const Button = (props) => {
     buttonType = "button",
     // onClose,
   } = props;
-  console.log(disabled);
+
   return (
     <ButtonWrap
       type={buttonType}

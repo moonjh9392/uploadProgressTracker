@@ -1,129 +1,106 @@
-import { useEffect, useRef, useState } from "react";
-import styled from "styled-components";
+import { useEffect, useState } from "react";
+import styled, { css } from "styled-components";
 
 //socket
 import { Stomp } from "@stomp/stompjs";
 
-import Modal from "./components/Modal/index";
+//component
 import Button, { colors } from "./components/Button";
+import UploadPopup from "./components/UploadPopup";
 
 const AppWrap = styled.div`
-  padding: 10%;
+  padding: 10% 10% 5%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  gap: 10%;
+  gap: 30px;
+  ${({ addlist }) =>
+    addlist === "false" &&
+    css`
+      height: 100vh;
+    `};
+`;
+
+const ContentWrap = styled.div`
+  padding-top: 5%;
+  width: 100%;
+  padding: 0 10%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  ${({ addlist }) =>
+    addlist === "false" &&
+    css`
+      overflow: hidden;
+    `};
 `;
 
 const ListWrap = styled.div`
+  width: 100%;
   display: flex;
-  justify-content: center;
-  align-items: center;
-`;
-
-const UploadPopup = styled.div`
-  width: 700px;
-  height: 100%;
-  padding: 10%;
-
-  .contentWrap {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-
-    .row {
-      display: flex;
-      justify-content: space-between;
-
-      .title {
-        font-size: 24px;
-        font-weight: 700;
-        line-height: 26px;
-      }
-      .inputBoxWrap {
-        position: relative;
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 8px;
-
-        width: 100%;
-        margin-bottom: 6px;
-        .inputBox {
-          border-radius: 6px;
-          border: 1px solid ${colors.grayD2D2D2};
-          background: ${colors.whiteFFF};
-          width: 100%;
-
-          padding: 13px 15px;
-
-          font-family: "Pretendard Variable", "sans-serif";
-          font-size: 14px;
-          line-height: 20px;
-          font-weight: 500;
-          color: ${colors.black222};
-
-          &::placeholder {
-            color: ${colors.grayAAA};
-          }
-          &:disabled {
-            background: ${colors.grayF7F7F7};
-            border-color: ${colors.grayEEE};
-            color: ${colors.grayD2D2D2};
-          }
-        }
-        .fileinputWrap {
-          display: flex;
-          justify-content: flex-start;
-          align-items: center;
-          gap: 8px;
-          .fileinput {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-
-            //border: 1px solid $gray-AAA;
-            border-radius: 6px;
-            //background: $white-FFF;
-            background: ${colors.primaryBlue};
-
-            min-width: 85px;
-            height: 48px;
-
-            font-weight: 600;
-            font-size: 16px;
-            line-height: 22px;
-            //color: $black-222;
-            color: ${colors.whiteFFF};
-
-            padding: 0px 0px;
-            cursor: pointer;
-            &:hover {
-              background: ${colors.blue0F5BC9};
-            }
-          }
-        }
-      }
-    }
-  }
-  .btnWrap {
-    cursor: pointer;
-
-    display: flex;
-    justify-content: center;
-
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 40px;
+  .title {
     font-size: 24px;
-    font-weight: 700;
+    font-weight: 900;
     line-height: 26px;
   }
 `;
 
+const FileProgress = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 5%;
+
+  .name {
+    ${({ progress }) =>
+      progress === "100" &&
+      css`
+        cursor: pointer;
+        color: ${colors.blue0F5BC9};
+        font-weight: 900;
+      `}
+  }
+  .progress {
+    width: 100%;
+  }
+
+  .state {
+    word-break: keep-all;
+  }
+`;
+
+const tempData = [
+  {
+    topic: "123123",
+    files: [
+      { name: "file1", progress: "0" },
+      { name: "file2", progress: "100" },
+      { name: "file3", progress: "50" },
+      { name: "file4", progress: "50" },
+      { name: "file5", progress: "50" },
+    ],
+  },
+  {
+    topic: "123123",
+    files: [
+      { name: "file1", progress: "0" },
+      { name: "file2", progress: "100" },
+      { name: "file3", progress: "50" },
+      { name: "file4", progress: "50" },
+      { name: "file5", progress: "50" },
+    ],
+  },
+];
+
 //socket 연결
 //real
-// const socket = new WebSocket("ws://192.168.0.67:8080/ws");
+const socket = new WebSocket("ws://192.168.0.67:8080/ws");
 //test
-const socket = new WebSocket("ws://localhost:8080/ws");
+// const socket = new WebSocket("ws://localhost:8080/ws");
 const stompClient = Stomp.over(socket);
 
 function App() {
@@ -131,8 +108,8 @@ function App() {
   //2. 변환 선택시 api로 파일전송 후 res값으로 해당 파일 key값받음
   //3. ws으로 파일 변환 상태값 갱신
   const [upLoadList, setUpLoadList] = useState();
+
   const [openModal, setOpenModal] = useState(false);
-  const [file, setFile] = useState(null);
 
   const handleModalOpen = () => {
     setOpenModal(true);
@@ -142,37 +119,7 @@ function App() {
     setOpenModal(false);
   };
 
-  const fileRef = useRef(null); // 업로드 파일 input ref 삭제시 필요
-
-  const [thumbnail, setThumbnail] = useState(""); // 업로드 파일
-
-  // 이미지 업로드 파일 선택 이벤트
-  const handleFileChange = (event) => {
-    const file = event.target.files[0]; // 첫 번째 선택한 파일 가져오기
-    setFile(file);
-    console.log(file);
-
-    // 썸네일 생성
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setThumbnail(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setThumbnail(null);
-    }
-  };
-
-  //선택 이미지 삭제
-  const deleteFile = () => {
-    if (fileRef.current) {
-      fileRef.current.value = "";
-    }
-    setFile(null);
-    setThumbnail("");
-  };
-
+  //socket
   const sendMessage = () => {
     if (isConnected) {
       stompClient.send(
@@ -189,26 +136,32 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
     stompClient.connect(
-      {},
+      {}, //header
       function (frame) {
+        //연결 성공시 콜백 함수
         console.log("Connected: " + frame);
         setIsConnected(true); // 연결이 성공하면 상태 업데이트
 
+        //구독
         stompClient.subscribe("/pub/message", function (message) {
           console.log("메시지 수신:", message);
           setMessage(JSON.parse(message.body).content);
         });
       },
       function (error) {
-        // 연결 실패 시 로직
+        // 연결 실패 시 콜백함수
+        setIsConnected(false);
         console.log("Connection error: " + error);
       }
     );
 
     return () => {
       if (stompClient) {
+        //인자 1: 성공콜백 , 2: 헤더
         stompClient.disconnect(() => {
+          //연결 해제 성공시 콜백 함수
           console.log("Disconnected");
           setIsConnected(false); // 연결 해제 시 상태 업데이트
         });
@@ -216,74 +169,81 @@ function App() {
     };
   }, []);
 
+  //이미지 미리보기
+  const previewImage = (progress, imageUrl) => {
+    if (progress === "100") {
+      const imageWindow = window.open("", "_blank");
+      imageWindow.document.write(`
+    <html>
+      <head>
+        <title>Image Preview</title>
+        <style>
+          body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.9);
+          }
+          img {
+            max-width: 100%;
+            max-height: 100vh;
+            object-fit: contain;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="${imageUrl}" alt="Image preview">
+      </body>
+    </html>
+  `);
+      imageWindow.document.close();
+    }
+  };
+
+  const [addList, setAddList] = useState(false);
+
   return (
-    <AppWrap>
-      <button onClick={handleModalOpen}>파일추가</button>
-      <Button onClick={sendMessage} disabled={!isConnected}>
-        메세지보내기
-      </Button>
-      <ListWrap>{message}</ListWrap>
-      <Modal
-        isOpen={openModal}
-        handleClose={handleModalClose}
-        children={
-          <UploadPopup>
-            <div className='contentWrap'>
-              <div className='row'>
-                <span className='title'>파일업로드</span>
-                <span className='btnWrap' onClick={handleModalClose}>
-                  X
-                </span>
-              </div>
-              <div className='row'>
-                <div className={"inputBoxWrap"}>
-                  <input
-                    className={"inputBox"}
-                    value={file && file.name}
-                    placeholder={"등록할 파일 선택"}
-                    disabled={true}
-                  />
-                  <div className={"fileinputWrap"}>
-                    <label htmlFor={"imgInput"} className={"fileinput"}>
-                      파일선택
-                    </label>
-                    <Button
-                      border={"outline"}
-                      buttonColor={"lightGray"}
-                      height={"48"}
-                      width={"85px"}
-                      onClick={deleteFile}
-                    >
-                      삭제
-                    </Button>
-                    <input
-                      type='file'
-                      id={"imgInput"}
-                      accept='.xlsx, .xls' // 이미지 파일만 선택 가능하도록 설정
-                      style={{ display: "none" }} // 실제로 보이지 않게 숨김/
-                      onChange={(e) => handleFileChange(e)} // 파일 선택 변경 이벤트 핸들러 연결
-                      ref={fileRef}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className='btnWrap'>
-                <Button
-                  type={"solid"}
-                  buttonColor={"blue"}
-                  height={"60"}
-                  width={"130px"}
-                  // 엑셀 다운로드 API call 및 다운로드 진행 함수
-                  onClick={() => {}}
-                  disabled={file === null}
+    <AppWrap addlist={addList.toString()}>
+      <ContentWrap>
+        <div>
+          <Button onClick={handleModalOpen}>파일추가</Button>
+        </div>
+        {/* test */}
+        {/* <Button onClick={sendMessage} disabled={!isConnected}>
+          메세지보내기
+        </Button> */}
+      </ContentWrap>
+
+      <ContentWrap addlist={addList.toString()}>
+        {tempData.map((data, index) => (
+          <ListWrap key={index}>
+            <div className='title'>{data.topic}</div>
+            {data.files?.map((file, index) => (
+              <FileProgress progress={file.progress} key={index}>
+                <div
+                  className='name'
+                  onClick={() => previewImage(file.progress, "image.jpg")}
                 >
-                  수정 업로드
-                </Button>
-              </div>
-            </div>
-          </UploadPopup>
-        }
-      />
+                  {file.name}
+                </div>
+                <progress
+                  className='progress'
+                  value={file.progress}
+                  min='0'
+                  max='100'
+                ></progress>
+                <div className='state'>상태</div>
+              </FileProgress>
+            ))}
+          </ListWrap>
+        ))}
+      </ContentWrap>
+      <div onClick={() => setAddList((prev) => !prev)}>
+        {addList ? "닫기" : "더보기"}
+      </div>
+      <UploadPopup openModal={openModal} handleModalClose={handleModalClose} />
     </AppWrap>
   );
 }
