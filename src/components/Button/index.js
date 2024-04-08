@@ -13,6 +13,7 @@ export const colors = {
   black222: "#222222",
   grayAAA: "#AAAAAA",
   grayF7F7F7: "#F7F7F7",
+  green: "rgb(69,123,59)",
 };
 
 //버튼 disabled 스타일

@@ -8,6 +8,8 @@ import { Stomp } from "@stomp/stompjs";
 import Button, { colors } from "./components/Button";
 import UploadPopup from "./components/UploadPopup";
 
+import LinearProgress from "@mui/material/LinearProgress";
+
 const AppWrap = styled.div`
   padding: 10% 10% 5%;
   display: flex;
@@ -53,27 +55,41 @@ const FileProgress = styled.div`
   width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 5%;
 
   .name {
+    width: 10%;
+    color: ${colors.grayAAA};
     ${({ progress }) =>
       progress === "100" &&
       css`
         cursor: pointer;
-        color: ${colors.blue0F5BC9};
+        color: ${colors.green};
         font-weight: 900;
-      `}
+      `};
   }
   .progress {
-    width: 100%;
+    width: 70%;
   }
 
   .state {
+    width: 10%;
     word-break: keep-all;
   }
 `;
 
 const tempData = [
+  {
+    topic: "123123",
+    files: [
+      { name: "file1", progress: "0" },
+      { name: "file2", progress: "100" },
+      { name: "file3", progress: "50" },
+      { name: "file4", progress: "50" },
+      { name: "file5", progress: "50" },
+    ],
+  },
   {
     topic: "123123",
     files: [
@@ -122,11 +138,7 @@ function App() {
   //socket
   const sendMessage = () => {
     if (isConnected) {
-      stompClient.send(
-        "/sub/message",
-        {},
-        JSON.stringify({ name: "YourName" })
-      );
+      stompClient.send("/sub/message", {}, "1");
     } else {
       console.log("STOMP 연결이 활성화되지 않았습니다.");
     }
@@ -211,9 +223,9 @@ function App() {
           <Button onClick={handleModalOpen}>파일추가</Button>
         </div>
         {/* test */}
-        {/* <Button onClick={sendMessage} disabled={!isConnected}>
+        <Button onClick={sendMessage} disabled={!isConnected}>
           메세지보내기
-        </Button> */}
+        </Button>
       </ContentWrap>
 
       <ContentWrap addlist={addList.toString()}>
@@ -228,12 +240,14 @@ function App() {
                 >
                   {file.name}
                 </div>
-                <progress
-                  className='progress'
-                  value={file.progress}
-                  min='0'
-                  max='100'
-                ></progress>
+                <div className='progress'>
+                  <LinearProgress
+                    color={file.progress === "100" ? "success" : "primary"}
+                    variant='determinate'
+                    value={file.progress}
+                  />
+                </div>
+
                 <div className='state'>상태</div>
               </FileProgress>
             ))}
