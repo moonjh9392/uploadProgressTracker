@@ -10,6 +10,7 @@ import UploadPopup from "./components/UploadPopup";
 
 import LinearProgress from "@mui/material/LinearProgress";
 import useManualApi from "./hooks/useManualApi";
+import API_ENDPOINTS from "./endpoints/apiEndpoints";
 
 const AppWrap = styled.div`
   padding: 10% 10% 5%;
@@ -40,6 +41,17 @@ const ContentWrap = styled.div`
     css`
       overflow: hidden;
     `};
+
+  .content {
+    width: 100%;
+    .taskId {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 16px;
+
+      margin-bottom: 20px;
+    }
+  }
 `;
 
 const ListWrap = styled.div`
@@ -69,64 +81,50 @@ const ListWrap = styled.div`
   }
 `;
 
-const tempData = [
-  {
-    topic: "123123",
-    total: 7,
-    compelete: 3,
-    converting: 4,
-    progress: 100,
-    files: [
-      { name: "file1" },
-      { name: "file2" },
-      { name: "file3" },
-      { name: "file4" },
-    ],
-  },
-];
-
 //socket 연결
 //real
 const socket = new WebSocket("ws://192.168.0.67:8080/ws");
-const stompClient = Stomp.over(socket);
+const client = Stomp.over(socket);
 
 function App() {
-  //1. 파일 추가 누르면 파일선택 팝업
-  //2. 변환 선택시 api로 파일전송 후 res값으로 해당 파일 key값받음
-  //3. ws으로 파일 변환 상태값 갱신
-  const [upLoadList, setUpLoadList] = useState();
+  const [upLoadList, setUpLoadList] = useState([]);
 
   const [openModal, setOpenModal] = useState(false);
   const [roomId, setRoomId] = useState(null);
-
-  // useApi 훅을 여기서 호출합니다.
-  const { response, loading, error, execute } = useManualApi("get", "api/v1");
-
-  // console.log(response, loading, error);
+  const [taskId, setTaskId] = useState(null);
 
   const handleModalOpen = () => {
-    if (isConnected) {
-      setOpenModal(true);
-    } else {
-      alert("서버와 연결 상태를 확인해주세요.");
-    }
+    setOpenModal(true);
+    // if (isConnected) {
+    //   setOpenModal(true);
+    // } else {
+    //   alert("서버와 연결 상태를 확인해주세요.");
+    // }
   };
 
   const handleModalClose = () => {
     setOpenModal(false);
   };
 
-  //socket
-  const sendMessage = () => {
-    if (isConnected) {
-      stompClient.send("/sub/message", {}, "1");
-    } else {
-      console.log("STOMP 연결이 활성화되지 않았습니다.");
-    }
-  };
+  //=========socket START===========
 
-  const [message, setMessage] = useState();
-  const [isConnected, setIsConnected] = useState(false);
+  //roomId 생성 api
+  const {
+    response: roomRes,
+    loading,
+    error,
+    execute,
+  } = useManualApi("get", API_ENDPOINTS.getRoom);
+
+  //완료 이미지 가져오기
+  const {
+    response: fileRes,
+    loading: fileLoading,
+    error: fileError,
+    execute: fileExecute,
+  } = useManualApi("get", API_ENDPOINTS.getFiles(taskId));
+
+  const [isConnected, setIsConnected] = useState(false); //현재 ws 연결상태
 
   //1. 최초 렌더시 방 ID 생성
   useEffect(() => {
@@ -135,9 +133,9 @@ function App() {
 
     //현재 페이지 닫힐때 소켓 연결해제
     return () => {
-      if (stompClient) {
+      if (client && client.connected) {
         //인자 1: 성공콜백 , 2: 헤더
-        stompClient.disconnect(() => {
+        client.disconnect(() => {
           //연결 해제 성공시 콜백 함수
           console.log("Disconnected");
           setIsConnected(false); // 연결 해제 시 상태 업데이트
@@ -148,34 +146,101 @@ function App() {
 
   //2. 소켓 연결 후 생성된 방 ID로 구독
   useEffect(() => {
-    if (response) {
-      console.log(`구독 URL : /sub/message/${response.result}`);
+    if (roomRes) {
+      console.log(`구독 URL : /sub/message/${roomRes.result}`);
+      setRoomId(roomRes.result);
 
-      //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
-      stompClient.connect(
-        {}, //header
-        function (frame) {
-          //연결 성공시 콜백 함수
-          console.log("Connected: " + frame);
-          setRoomId(response.result);
-          setIsConnected(true); // 연결이 성공하면 상태 업데이트
-          //구독
-          stompClient.subscribe(
-            `/sub/message/${response.result}`,
-            function (message) {
-              console.log("메시지 수신:", message);
-              setMessage(JSON.parse(message.body).content);
-            }
-          );
-        },
-        function (error) {
-          // 연결 실패 시 콜백함수
-          setIsConnected(false);
-          console.log("Connection error: " + error);
-        }
-      );
+      //소켓 연결 함수
+      const connectClient = () => {
+        console.log("connectClient");
+        //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
+        client.connect(
+          {}, //header
+          function (frame) {
+            //연결 성공시 콜백 함수
+            console.log("Connected: " + frame);
+            setIsConnected(true); // 연결이 성공하면 상태 업데이트
+            //구독
+            client.subscribe(
+              `/sub/message/${roomRes.result}`,
+              function (message) {
+                //응답 후처리
+                const taskId = JSON.parse(message.body)[0].taskId;
+                const list = JSON.parse(message.body);
+                let taskIndex = null;
+
+                //현재 진행도 업데이트
+                setUpLoadList((prev) => {
+                  const copyList = [...prev];
+                  //같은 taskId가 있는지 찾음
+                  copyList.forEach((item, index) => {
+                    if (item.taskId === taskId) {
+                      taskIndex = index;
+                    }
+                  });
+                  //taskIndex가 있는경우 교체
+                  if (taskIndex || taskIndex === 0) {
+                    copyList[taskIndex] = {
+                      taskId,
+                      list,
+                    };
+                  } else {
+                    //아닌경우 새로 생성
+                    copyList.push({ taskId, list });
+                  }
+                  return copyList;
+                });
+
+                //task 전체 완료된경우 파일가져오기 로직(구현중..)
+                let count = 0;
+
+                list.forEach((data) => {
+                  if (data.progress === 100) {
+                    count++;
+                  }
+                });
+
+                if (list.length === count) {
+                  setTaskId(taskId);
+                }
+              }
+            );
+          },
+          function (error) {
+            // 연결 실패 시 콜백함수
+            setIsConnected(false);
+            console.log("Connection error: " + error);
+            // 1초 후에 재시도
+            setTimeout(connectClient, 1000);
+          }
+        );
+      };
+
+      // 최초 연결 시도
+      connectClient();
     }
-  }, [response]);
+  }, [roomRes]);
+
+  // //파일가져오기 API 호출
+  useEffect(() => {
+    if (taskId) {
+      fileExecute();
+    }
+  }, [taskId]);
+
+  //파일 가져오기 res update
+  useEffect(() => {
+    if (fileRes) {
+      console.log(fileRes);
+      // setUpLoadList((prev) => {
+      //   const copyList = [...prev];
+      // });
+    }
+  }, [fileRes]);
+
+  console.log(upLoadList);
+
+  //=========socket END===========
 
   //이미지 미리보기
   const previewImage = (imageUrl) => {
@@ -221,21 +286,24 @@ function App() {
       </ContentWrap>
 
       <ContentWrap addlist={addList.toString()}>
-        {tempData.map((data, index) => (
-          <ListWrap key={index}>
-            <div className='title'>
-              <span>{data.topic}</span>
-              <span>전체 : {data.total}</span>
-              <span className='blue'>진행중 : {data.converting}</span>
-              <span className='green'>완료 : {data.compelete}</span>
-            </div>
-            <LinearProgress
-              color={data.progress === 100 ? "success" : "primary"}
-              variant='determinate'
-              value={100}
-            />
+        {upLoadList.map((data, index) => (
+          <div className='content' key={index}>
+            <div className='taskId'>{data.taskId}</div>
+            {data.list?.map((item) => (
+              <ListWrap key={index}>
+                <div className='title'>
+                  <span>{item.folderName}</span>
+                  <span>전체 : {item.totalImages}</span>
+                  <span className='blue'>진행중 : {item.convertingImages}</span>
+                  <span className='green'>완료 : {item.completedImages}</span>
+                </div>
+                <LinearProgress
+                  color={item.progress === 100 ? "success" : "primary"}
+                  variant='determinate'
+                  value={item.progress}
+                />
 
-            {data.files &&
+                {/* {data.files &&
               data.files?.map((file, index) => (
                 <div
                   key={index}
@@ -244,12 +312,14 @@ function App() {
                 >
                   {file.name}
                 </div>
-              ))}
-          </ListWrap>
+              ))} */}
+              </ListWrap>
+            ))}
+          </div>
         ))}
       </ContentWrap>
       <div onClick={() => setAddList((prev) => !prev)}>
-        {addList ? "닫기" : "더보기"} {message}
+        {addList ? "닫기" : "더보기"}
       </div>
       <UploadPopup
         openModal={openModal}

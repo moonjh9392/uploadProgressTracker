@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import Modal from "../Modal";
 import Button, { colors } from "../Button";
 import useManualApi from "../../hooks/useManualApi";
+import API_ENDPOINTS from "../../endpoints/apiEndpoints";
 
 const UploadPopupWrap = styled.div`
   width: 700px;
@@ -105,10 +106,10 @@ const UploadPopup = ({ openModal, handleModalClose, roomId }) => {
   const fileRef = useRef(null); // 업로드 파일 input ref 삭제시 필요
   const [file, setFile] = useState(null);
 
-  // useApi 훅을 여기서 호출합니다.
+  //파일업로드 API
   const { response, loading, error, execute } = useManualApi(
     "post",
-    `/api/v1/generate-thumbnails/${roomId}`,
+    API_ENDPOINTS.uploadFile(roomId),
     null, // 초기 데이터는 null로 설정
     {}, // 초기 헤더는 빈 객체로 설정
     {
@@ -131,9 +132,18 @@ const UploadPopup = ({ openModal, handleModalClose, roomId }) => {
     if (file) {
       const formData = new FormData();
       formData.append("files", file);
-      execute(formData); // execute 함수를 사용하여 API 호출을 트리거합니다.
+      execute(formData);
+      // setFile(null);
+      // handleModalClose();
     }
   };
+
+  //에러 처리
+  useEffect(() => {
+    if (error) {
+      alert(error.response.data.message);
+    }
+  }, [error]);
 
   return (
     <Modal
@@ -188,7 +198,7 @@ const UploadPopup = ({ openModal, handleModalClose, roomId }) => {
                 width={"130px"}
                 // 엑셀 다운로드 API call 및 다운로드 진행 함수
                 onClick={() => FileUpload()}
-                disabled={file === null || loading}
+                disabled={file === null}
               >
                 업로드
               </Button>
