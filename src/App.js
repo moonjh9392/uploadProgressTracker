@@ -9,6 +9,7 @@ import Button, { colors } from "./components/Button";
 import UploadPopup from "./components/UploadPopup";
 
 import LinearProgress from "@mui/material/LinearProgress";
+import useManualApi from "./hooks/useManualApi";
 
 const AppWrap = styled.div`
   padding: 10% 10% 5%;
@@ -74,7 +75,7 @@ const tempData = [
     total: 7,
     compelete: 3,
     converting: 4,
-    progress: "50",
+    progress: 100,
     files: [
       { name: "file1" },
       { name: "file2" },
@@ -87,8 +88,6 @@ const tempData = [
 //socket 연결
 //real
 const socket = new WebSocket("ws://192.168.0.67:8080/ws");
-//test
-// const socket = new WebSocket("ws://localhost:8080/ws");
 const stompClient = Stomp.over(socket);
 
 function App() {
@@ -98,9 +97,19 @@ function App() {
   const [upLoadList, setUpLoadList] = useState();
 
   const [openModal, setOpenModal] = useState(false);
+  const [roomId, setRoomId] = useState(null);
+
+  // useApi 훅을 여기서 호출합니다.
+  const { response, loading, error, execute } = useManualApi("get", "api/v1");
+
+  // console.log(response, loading, error);
 
   const handleModalOpen = () => {
-    setOpenModal(true);
+    if (isConnected) {
+      setOpenModal(true);
+    } else {
+      alert("서버와 연결 상태를 확인해주세요.");
+    }
   };
 
   const handleModalClose = () => {
@@ -119,28 +128,12 @@ function App() {
   const [message, setMessage] = useState();
   const [isConnected, setIsConnected] = useState(false);
 
+  //1. 최초 렌더시 방 ID 생성
   useEffect(() => {
-    //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
-    stompClient.connect(
-      {}, //header
-      function (frame) {
-        //연결 성공시 콜백 함수
-        console.log("Connected: " + frame);
-        setIsConnected(true); // 연결이 성공하면 상태 업데이트
+    //방 ID 생성
+    execute();
 
-        //구독
-        stompClient.subscribe("/pub/message", function (message) {
-          console.log("메시지 수신:", message);
-          setMessage(JSON.parse(message.body).content);
-        });
-      },
-      function (error) {
-        // 연결 실패 시 콜백함수
-        setIsConnected(false);
-        console.log("Connection error: " + error);
-      }
-    );
-
+    //현재 페이지 닫힐때 소켓 연결해제
     return () => {
       if (stompClient) {
         //인자 1: 성공콜백 , 2: 헤더
@@ -153,11 +146,41 @@ function App() {
     };
   }, []);
 
+  //2. 소켓 연결 후 생성된 방 ID로 구독
+  useEffect(() => {
+    if (response) {
+      console.log(`구독 URL : /sub/message/${response.result}`);
+
+      //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
+      stompClient.connect(
+        {}, //header
+        function (frame) {
+          //연결 성공시 콜백 함수
+          console.log("Connected: " + frame);
+          setRoomId(response.result);
+          setIsConnected(true); // 연결이 성공하면 상태 업데이트
+          //구독
+          stompClient.subscribe(
+            `/sub/message/${response.result}`,
+            function (message) {
+              console.log("메시지 수신:", message);
+              setMessage(JSON.parse(message.body).content);
+            }
+          );
+        },
+        function (error) {
+          // 연결 실패 시 콜백함수
+          setIsConnected(false);
+          console.log("Connection error: " + error);
+        }
+      );
+    }
+  }, [response]);
+
   //이미지 미리보기
-  const previewImage = (progress, imageUrl) => {
-    if (progress === "100") {
-      const imageWindow = window.open("", "_blank");
-      imageWindow.document.write(`
+  const previewImage = (imageUrl) => {
+    const imageWindow = window.open("", "_blank");
+    imageWindow.document.write(`
     <html>
       <head>
         <title>Image Preview</title>
@@ -182,8 +205,7 @@ function App() {
       </body>
     </html>
   `);
-      imageWindow.document.close();
-    }
+    imageWindow.document.close();
   };
 
   const [addList, setAddList] = useState(false);
@@ -195,7 +217,7 @@ function App() {
           <Button onClick={handleModalOpen}>파일추가</Button>
         </div>
 
-        <Button disabled={!isConnected}>서버 연결상태</Button>
+        <Button disabled={!isConnected}>소켓 연결상태</Button>
       </ContentWrap>
 
       <ContentWrap addlist={addList.toString()}>
@@ -208,9 +230,9 @@ function App() {
               <span className='green'>완료 : {data.compelete}</span>
             </div>
             <LinearProgress
-              color={data.progress === "100" ? "success" : "primary"}
+              color={data.progress === 100 ? "success" : "primary"}
               variant='determinate'
-              value={data.progress}
+              value={100}
             />
 
             {data.files &&
@@ -218,7 +240,7 @@ function App() {
                 <div
                   key={index}
                   className='name'
-                  onClick={() => previewImage(file.progress, "image.jpg")}
+                  onClick={() => previewImage("image.jpg")}
                 >
                   {file.name}
                 </div>
@@ -227,9 +249,13 @@ function App() {
         ))}
       </ContentWrap>
       <div onClick={() => setAddList((prev) => !prev)}>
-        {addList ? "닫기" : "더보기"}
+        {addList ? "닫기" : "더보기"} {message}
       </div>
-      <UploadPopup openModal={openModal} handleModalClose={handleModalClose} />
+      <UploadPopup
+        openModal={openModal}
+        handleModalClose={handleModalClose}
+        roomId={roomId}
+      />
     </AppWrap>
   );
 }

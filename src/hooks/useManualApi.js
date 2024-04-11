@@ -23,13 +23,16 @@ const useManualApi = (method, url, data = {}, params = {}, headers = {}) => {
         let response;
         switch (method.toLowerCase()) {
           //post,put,patch,delete추가 가능
+          case "get":
+            response = await apiClient.get(url, config);
+            break;
           case "post":
             response = await apiClient.post(url, requestData, config);
             break;
           default:
             throw new Error(`The HTTP method ${method} is not supported.`);
         }
-        setResponse(response);
+        setResponse(response.data);
       } catch (err) {
         setError(err);
       } finally {
@@ -39,7 +42,7 @@ const useManualApi = (method, url, data = {}, params = {}, headers = {}) => {
     [method, url]
   );
 
-  // execute 함수는 fetchData를 호출하며, 필요한 매개변수를 전달합니다.
+  //fetchData 호출
   const execute = useCallback(
     (requestData = data, requestParams = params, requestHeaders = headers) => {
       fetchData(requestData, requestParams, requestHeaders);

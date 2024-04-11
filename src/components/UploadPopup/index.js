@@ -101,14 +101,14 @@ const UploadPopupWrap = styled.div`
   }
 `;
 
-const UploadPopup = ({ openModal, handleModalClose }) => {
+const UploadPopup = ({ openModal, handleModalClose, roomId }) => {
   const fileRef = useRef(null); // 업로드 파일 input ref 삭제시 필요
   const [file, setFile] = useState(null);
 
   // useApi 훅을 여기서 호출합니다.
   const { response, loading, error, execute } = useManualApi(
     "post",
-    "/api/v1/generate-thumbnails",
+    `/api/v1/generate-thumbnails/${roomId}`,
     null, // 초기 데이터는 null로 설정
     {}, // 초기 헤더는 빈 객체로 설정
     {
@@ -130,7 +130,7 @@ const UploadPopup = ({ openModal, handleModalClose }) => {
   const FileUpload = async () => {
     if (file) {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("files", file);
       execute(formData); // execute 함수를 사용하여 API 호출을 트리거합니다.
     }
   };
