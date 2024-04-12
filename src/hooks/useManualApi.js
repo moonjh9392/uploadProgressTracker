@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "http://192.168.0.67:8080/",
+  baseURL: "http://192.168.0.56:8080/",
 });
 
 const useManualApi = (method, url, data = {}, params = {}, headers = {}) => {

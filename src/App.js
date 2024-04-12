@@ -83,7 +83,7 @@ const ListWrap = styled.div`
 
 //socket 연결
 //real
-const socket = new WebSocket("ws://192.168.0.67:8080/ws");
+const socket = new WebSocket("ws://192.168.0.56:8080/ws");
 const client = Stomp.over(socket);
 
 function App() {
@@ -130,7 +130,27 @@ function App() {
   useEffect(() => {
     //방 ID 생성
     execute();
-
+    //소켓 연결 함수
+    const connectClient = () => {
+      console.log("connectClient");
+      //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
+      client.connect(
+        {}, //header
+        function (frame) {
+          //연결 성공시 콜백 함수
+          console.log("Connected: " + frame);
+          setIsConnected(true);
+        }, // 연결이 성공하면 상태 업데이트
+        function (error) {
+          // 연결 실패 시 콜백함수
+          setIsConnected(false);
+          console.log("Connection error: " + error);
+          // 1초 후에 재시도
+          setTimeout(connectClient, 1000);
+        }
+      );
+    };
+    connectClient();
     //현재 페이지 닫힐때 소켓 연결해제
     return () => {
       if (client && client.connected) {
@@ -146,80 +166,53 @@ function App() {
 
   //2. 소켓 연결 후 생성된 방 ID로 구독
   useEffect(() => {
-    if (roomRes) {
+    if (roomRes && isConnected) {
       console.log(`구독 URL : /sub/message/${roomRes.result}`);
       setRoomId(roomRes.result);
 
-      //소켓 연결 함수
-      const connectClient = () => {
-        console.log("connectClient");
-        //인자 1: 헤더 , 2:성공 콜백, 3:실패 콜백
-        client.connect(
-          {}, //header
-          function (frame) {
-            //연결 성공시 콜백 함수
-            console.log("Connected: " + frame);
-            setIsConnected(true); // 연결이 성공하면 상태 업데이트
-            //구독
-            client.subscribe(
-              `/sub/message/${roomRes.result}`,
-              function (message) {
-                //응답 후처리
-                const taskId = JSON.parse(message.body)[0].taskId;
-                const list = JSON.parse(message.body);
-                let taskIndex = null;
+      client.subscribe(`/sub/message/${roomRes.result}`, function (message) {
+        //응답 후처리
+        const taskId = JSON.parse(message.body)[0].taskId;
+        const list = JSON.parse(message.body);
+        let taskIndex = null;
 
-                //현재 진행도 업데이트
-                setUpLoadList((prev) => {
-                  const copyList = [...prev];
-                  //같은 taskId가 있는지 찾음
-                  copyList.forEach((item, index) => {
-                    if (item.taskId === taskId) {
-                      taskIndex = index;
-                    }
-                  });
-                  //taskIndex가 있는경우 교체
-                  if (taskIndex || taskIndex === 0) {
-                    copyList[taskIndex] = {
-                      taskId,
-                      list,
-                    };
-                  } else {
-                    //아닌경우 새로 생성
-                    copyList.push({ taskId, list });
-                  }
-                  return copyList;
-                });
-
-                //task 전체 완료된경우 파일가져오기 로직(구현중..)
-                let count = 0;
-
-                list.forEach((data) => {
-                  if (data.progress === 100) {
-                    count++;
-                  }
-                });
-
-                if (list.length === count) {
-                  setTaskId(taskId);
-                }
-              }
-            );
-          },
-          function (error) {
-            // 연결 실패 시 콜백함수
-            setIsConnected(false);
-            console.log("Connection error: " + error);
-            // 1초 후에 재시도
-            setTimeout(connectClient, 1000);
+        //현재 진행도 업데이트
+        setUpLoadList((prev) => {
+          const copyList = [...prev];
+          //같은 taskId가 있는지 찾음
+          copyList.forEach((item, index) => {
+            if (item.taskId === taskId) {
+              taskIndex = index;
+            }
+          });
+          //taskIndex가 있는경우 교체
+          if (taskIndex || taskIndex === 0) {
+            copyList[taskIndex] = {
+              taskId,
+              list,
+            };
+          } else {
+            //아닌경우 새로 생성
+            copyList.push({ taskId, list });
           }
-        );
-      };
+          return copyList;
+        });
 
-      // 최초 연결 시도
-      connectClient();
+        //task 전체 완료된경우 파일가져오기 로직(구현중..)
+        let count = 0;
+
+        list.forEach((data) => {
+          if (data.progress === 100) {
+            count++;
+          }
+        });
+
+        if (list.length === count) {
+          setTaskId(taskId);
+        }
+      });
     }
-  }, [roomRes]);
+  }, [roomRes, isConnected]);
 
   // //파일가져오기 API 호출
   useEffect(() => {
